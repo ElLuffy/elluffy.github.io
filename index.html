@@ -1681,21 +1681,19 @@
     document.cookie = `spv_vid_seen=1;expires=${seenExp.toUTCString()};path=/;SameSite=Lax`;
     lsSet("spv_vid_seen","1");
 
-    // 1. Visitor — INSERT si nouveau (ignore si déjà existant), PATCH last_seen
-    if(isNewVisitor){
-      // Nouvel visiteur : INSERT simple
-      sbInsert("visitors", {
-        visitor_id: visitorId,
-        first_seen: now,
-        last_seen:  now,
-        is_new:     true
-      });
-    } else {
-      // Visiteur connu : juste mettre à jour last_seen
+    // 1. Visitor — toujours INSERT (ignore-duplicates si déjà existant) + PATCH last_seen
+    sbInsert("visitors", {
+      visitor_id: visitorId,
+      first_seen: now,
+      last_seen:  now,
+      is_new:     isNewVisitor
+    });
+    // Mettre à jour last_seen si visiteur existant
+    if(!isNewVisitor){
       sbPatch("visitors", `visitor_id=eq.${visitorId}`, { last_seen: now });
     }
 
-    // 2. Créer session si nouvelle
+    // 2. Session — toujours INSERT (ignore-duplicates si déjà existante)
     if(isNewSession){
       sbInsert("sessions", {
         session_id:   sessionId,
