@@ -864,18 +864,8 @@
 
     // Attach cookie burst to consent buttons
     document.addEventListener("DOMContentLoaded", ()=>{
-      // Intercept spvConsent accept
-      const origConsent = window.spvConsent;
-      window.spvConsent = function(yes, evt){
-        if(yes && evt){
-          burstCookies(evt.clientX, evt.clientY);
-        } else if(!yes && evt){
-          if(navigator.vibrate) navigator.vibrate([8, 20, 8]);
-        }
-        return origConsent(yes);
-      };
-
-      // Patch banner buttons after they're created (MutationObserver)
+      // Cookie burst via MutationObserver sur les boutons du banner
+      // (Le tracking est géré directement dans showBanner, pas via spvConsent)
       const observer = new MutationObserver(()=>{
         const acceptBtn = document.getElementById("spvAcceptBtn");
         const refuseBtn = document.getElementById("spvRefuseBtn");
@@ -1642,7 +1632,6 @@
   /* ─── COOKIE CONSENT BANNER ──────────────────────────────── */
   function showBanner(){
     if(document.getElementById("spv-banner")) return;
-    if(getCookie("spv_consent")) return;
     const b = document.createElement("div");
     b.id = "spv-banner";
     b.style.cssText = "position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);z-index:99999;max-width:520px;width:calc(100% - 2rem);background:#121928;border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:1rem 1.2rem;box-shadow:0 16px 60px rgba(0,0,0,.85);display:flex;flex-direction:column;gap:.8rem;animation:slideUpBanner .35s cubic-bezier(.34,1.56,.64,1)";
@@ -1871,8 +1860,14 @@
       mountDevBadge();
       if(sessionStorage.getItem("spv_dev_track")==="1") initTracking();
     } else {
-      showBanner();
-      if(hasConsent()) initTracking();
+      if(hasConsent()){
+        // Consentement déjà donné → tracking direct, pas de banner
+        initTracking();
+      } else if(getCookie("spv_consent") !== "no"){
+        // Pas encore décidé → montrer le banner
+        showBanner();
+      }
+      // Si "no" → rien
     }
   }
 
