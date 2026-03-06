@@ -679,7 +679,7 @@ async function loadAll(){
   renderOverview(S, E, V);
   renderVisitors(S, E, V);
   renderConversion(S, E);
-  renderScroll(E);
+  renderScroll(E, S);
   renderUTM(S, U);
   renderSources(S, E);
 
@@ -846,7 +846,7 @@ function renderConversion(S, E){
   }
 
   // Tableau conversions
-  const tbody = document.getElementById("convTable");
+  const tbody = document.getElementById("formTable");
   if(!tbody) return;
   const convSessions = S.filter(s=>convSessIds.has(s.session_id));
   tbody.innerHTML = convSessions.slice(0,20).map(s=>{
@@ -862,7 +862,7 @@ function renderConversion(S, E){
 }
 
 // ── SCROLL & TEMPS ────────────────────────────────────
-function renderScroll(E){
+function renderScroll(E, S){
   const milestones = [25,50,75,100];
 
   // Scroll : compter sessions uniques ayant atteint chaque milestone
@@ -902,6 +902,27 @@ function renderScroll(E){
     else           timeBuckets[">10m"]++;
   });
   buildChart("timeChart","bar",Object.keys(timeBuckets),Object.values(timeBuckets),"Sessions","#22c55e");
+
+  // ── Scroll moyen par source ──
+  if(S && S.length){
+    const srcScroll = {};
+    S.forEach(s=>{
+      let src = "Direct";
+      if(s.utm_source) src = s.utm_source;
+      else if(s.referrer?.includes("google")) src = "Google";
+      else if(s.referrer?.includes("facebook")) src = "Facebook";
+      else if(s.referrer?.includes("instagram")) src = "Instagram";
+      if(!srcScroll[src]) srcScroll[src] = { sum:0, count:0 };
+      // Trouver le scroll max de cette session dans les events
+      const sessEvents = E.filter(e=>e.session_id===s.session_id && e.event_name==="scroll");
+      const maxScroll  = sessEvents.length ? Math.max(...sessEvents.map(e=>parseMeta(e).milestone||0)) : 0;
+      srcScroll[src].sum   += maxScroll;
+      srcScroll[src].count += 1;
+    });
+    const srcLabels = Object.keys(srcScroll).filter(k=>srcScroll[k].count>0);
+    const srcAvgs   = srcLabels.map(k=>Math.round(srcScroll[k].sum/srcScroll[k].count));
+    buildChart("scrollSourceChart","bar",srcLabels,srcAvgs,"Scroll moyen %","#f0cc4e");
+  }
 }
 
 // ── UTM ───────────────────────────────────────────────
