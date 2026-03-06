@@ -397,7 +397,7 @@
           </div>
           <div class="chart-card">
             <div class="chart-header"><div><div class="chart-title">Temps sur le site</div><div class="chart-sub">Distribution des durées de session</div></div></div>
-            <canvas id="timeChart" height="220"></canvas>
+            <div id="timeBars" style="padding:.25rem 0"></div>
           </div>
         </div>
         <div class="chart-card full-row">
@@ -920,16 +920,8 @@ function renderScroll(E, S){
   const tMax  = Math.max(...timeDef.map(b=>b.count), 1);
   const tTot  = pvTimes.length || 1;
 
-  // Cacher le canvas Chart.js et utiliser un div à la place
-  const tc = document.getElementById("timeChart");
-  if(tc) tc.style.display = "none";
-  let td = document.getElementById("timeBars");
-  if(!td){
-    td = document.createElement("div");
-    td.id = "timeBars";
-    td.style.cssText = "padding:.25rem 0";
-    if(tc) tc.parentElement.appendChild(td);
-  }
+  // Barres horizontales temps
+  const td = document.getElementById("timeBars");
   if(td){
     td.innerHTML = timeDef.map(b=>{
       const barW = Math.round((b.count/tMax)*100);
