@@ -643,6 +643,12 @@ function updateTopSub(){
 }
 
 function fmt(d){ return d.toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"}); }
+function parseMeta(e){
+  if(!e || !e.metadata) return {};
+  if(typeof e.metadata === "object") return e.metadata;
+  try{ return JSON.parse(e.metadata); }catch(err){ return {}; }
+}
+
 function fmtShort(d){ return new Date(d).toLocaleDateString("fr-FR",{day:"2-digit",month:"short"}); }
 function fmtFull(d){ return new Date(d).toLocaleString("fr-FR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}); }
 
@@ -733,11 +739,13 @@ function renderVisitors(S, E, V){
   const bLabels = Object.keys(bMap).sort((a,b)=>bMap[b]-bMap[a]).slice(0,5);
   buildChart("browserChart","bar",bLabels,bLabels.map(k=>bMap[k]),"Sessions","#1f3a8a");
 
-  // Heatmap 24h
+  // Heatmap 24h — depuis sessions.hour_of_day
   const hours = Array(24).fill(0);
-  S.forEach(s=>{ if(s.hour_of_day != null) hours[s.hour_of_day]++; });
-  const hLabels = Array.from({length:24},(_,i)=>i+"h");
-  buildChart("hourChart","bar",hLabels,hours,"Sessions","#1f3a8a");
+  S.forEach(s=>{ const h = s.hour_of_day; if(h !== null && h !== undefined && h >= 0 && h < 24) hours[h]++; });
+  const hLabels = Array.from({length:24},(_,i)=>(i<10?"0"+i:i)+"h");
+  const maxH = Math.max(...hours, 1);
+  const hColors = hours.map(v => v === Math.max(...hours) ? "#f0cc4e" : "#1f3a8a");
+  buildChartMultiColor("hourChart","bar",hLabels,hours,"Sessions",hColors);
 
   // Tableau 50 dernières sessions
   const tbody = document.getElementById("visitorTable");
@@ -767,7 +775,7 @@ function renderConversion(S, E){
 
   // Funnel: sessions → page_view → scroll 50% → form_submit
   const pvSess    = new Set(E.filter(e=>e.event_name==="page_view").map(e=>e.session_id)).size;
-  const sc50Sess  = new Set(E.filter(e=>e.event_name==="scroll"&&(e.metadata?.milestone>=50||(()=>{try{return JSON.parse(e.metadata||"{}").milestone>=50}catch(e){return false}})())).map(e=>e.session_id)).size;
+  const sc50Sess  = new Set(E.filter(e=>e.event_name==="scroll" && parseMeta(e).milestone>=50).map(e=>e.session_id)).size;
   buildChart("funnelChart","bar",
     ["Sessions","Page vue","Scroll 50%","Conversion"],
     [total, pvSess, sc50Sess, conv],
@@ -792,25 +800,26 @@ function renderConversion(S, E){
 
 // ── SCROLL & TEMPS ────────────────────────────────────
 function renderScroll(E){
-  // Distribution scroll milestones
   const milestones = [25,50,75,100];
-  const pvCount = E.filter(e=>e.event_name==="page_view").length || 1;
-  const scrollCounts = milestones.map(m =>
-    new Set(E.filter(e=>e.event_name==="scroll"&&((e.metadata?.milestone||JSON.parse(e.metadata||"{}").milestone||0)>=m)).map(e=>e.session_id)).size
-  );
-  buildChart("scrollChart","bar",
-    milestones.map(m=>m+"%"),scrollCounts,"Sessions","#1f3a8a"
-  );
 
-  // Distribution temps
+  // Scroll : compter sessions uniques ayant atteint chaque milestone
+  const scrollCounts = milestones.map(m =>
+    new Set(
+      E.filter(e => e.event_name==="scroll" && parseMeta(e).milestone >= m)
+       .map(e => e.session_id)
+    ).size
+  );
+  buildChart("scrollChart","bar", milestones.map(m=>m+"%"), scrollCounts, "Sessions", "#1f3a8a");
+
+  // Temps sur page : depuis les events page_view avec time_on_page > 0
   const pvTimes = E.filter(e=>e.event_name==="page_view" && e.time_on_page > 0).map(e=>e.time_on_page);
   const timeBuckets = {"<30s":0,"30s-1m":0,"1-3m":0,"3-10m":0,">10m":0};
   pvTimes.forEach(t=>{
-    if(t<30) timeBuckets["<30s"]++;
-    else if(t<60) timeBuckets["30s-1m"]++;
+    if(t<30)       timeBuckets["<30s"]++;
+    else if(t<60)  timeBuckets["30s-1m"]++;
     else if(t<180) timeBuckets["1-3m"]++;
     else if(t<600) timeBuckets["3-10m"]++;
-    else timeBuckets[">10m"]++;
+    else           timeBuckets[">10m"]++;
   });
   buildChart("timeChart","bar",Object.keys(timeBuckets),Object.values(timeBuckets),"Sessions","#22c55e");
 }
@@ -866,20 +875,26 @@ function renderSources(S, E){
   const srcMap = {};
   S.forEach(s=>{
     let src = "Direct";
-    if(s.utm_source) src = s.utm_source;
-    else if(s.referrer && s.referrer.includes("google")) src = "google";
-    else if(s.referrer && s.referrer.includes("facebook")) src = "facebook";
-    else if(s.referrer && s.referrer !== "") src = "referral";
+    if(s.utm_source)                               src = s.utm_source;
+    else if(s.referrer?.includes("google"))        src = "Google";
+    else if(s.referrer?.includes("facebook"))      src = "Facebook";
+    else if(s.referrer?.includes("instagram"))     src = "Instagram";
+    else if(s.referrer?.includes("linkedin"))      src = "LinkedIn";
+    else if(s.referrer && s.referrer !== "" && s.referrer !== location.origin) src = "Referral";
     if(!srcMap[src]) srcMap[src]={visits:0,conv:0};
     srcMap[src].visits++;
     if(s.converted) srcMap[src].conv++;
   });
 
-  const labels  = Object.keys(srcMap).sort((a,b)=>srcMap[b].visits-srcMap[a].visits);
-  const values  = labels.map(k=>srcMap[k].visits);
+  if(Object.keys(srcMap).length === 0){
+    document.getElementById("sourceTable").innerHTML = `<tr><td colspan="4" class="empty-state">Aucune donnée sur la période</td></tr>`;
+    return;
+  }
+
+  const labels = Object.keys(srcMap).sort((a,b)=>srcMap[b].visits-srcMap[a].visits);
+  const values = labels.map(k=>srcMap[k].visits);
   buildDoughnut("sourceChart",labels,values,["#1f3a8a","#22c55e","#f0cc4e","#fb923c","#a855f7","#14b8a6"]);
 
-  // Tableau sources
   const tbody = document.getElementById("sourceTable");
   if(!tbody) return;
   tbody.innerHTML = labels.map(src=>{
@@ -887,11 +902,11 @@ function renderSources(S, E){
     const rate = d.visits>0?((d.conv/d.visits)*100).toFixed(1)+"%":"0%";
     return `<tr>
       <td>${sourceTag(src)}</td>
-      <td style="font-family:var(--font-mono);font-weight:700">${d.visits}</td>
+      <td style="font-family:var(--font-mono);font-weight:700;color:var(--txt)">${d.visits}</td>
       <td style="font-family:var(--font-mono);color:${d.conv>0?"#4ade80":"var(--txt3)"}">${d.conv}</td>
       <td class="mono">${rate}</td>
     </tr>`;
-  }).join("") || `<tr><td colspan="4" class="empty-state">Aucune donnée</td></tr>`;
+  }).join("");
 }
 
 // ── UTM BUILDER ───────────────────────────────────────
@@ -962,6 +977,17 @@ async function exportCSV(){
 
 // ── CHARTS HELPERS ────────────────────────────────────
 function destroyChart(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
+
+function buildChartMultiColor(id, type, labels, data, label, colors){
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if(!ctx) return;
+  charts[id] = new Chart(ctx, {
+    type,
+    data: { labels, datasets:[{ label, data, backgroundColor: colors, borderRadius:4 }] },
+    options: { ...chartOpts(), plugins:{ legend:{ display:false } } }
+  });
+}
 
 function chartOpts(){
   return {
