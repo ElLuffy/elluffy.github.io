@@ -29,6 +29,8 @@
 
     /* NAV */
     nav{position:fixed;top:0;left:0;right:0;z-index:100;border-bottom:1px solid transparent;transition:background var(--transition),border var(--transition),backdrop-filter var(--transition)}
+    #scrollProgress{position:fixed;top:72px;left:0;right:0;z-index:99;height:2px;pointer-events:none;}
+    #scrollProgressBar{height:100%;width:0%;background:linear-gradient(90deg,var(--blue) 0%,#4d7aff 60%,#a78bfa 100%);box-shadow:0 0 8px rgba(31,58,138,.5);transition:width .08s linear;border-radius:0 2px 2px 0;}
     nav.scrolled{background:rgba(14,14,14,.88);border-bottom-color:var(--border);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
     [data-theme="light"] nav.scrolled{background:rgba(244,244,245,.88)}
     .nav-inner{display:flex;align-items:center;justify-content:space-between;height:72px;padding:0 2rem;max-width:1200px;margin:0 auto}
@@ -371,6 +373,7 @@
     <button class="hamburger" id="hamburger" style="background:none;border:none;color:var(--text-primary);cursor:pointer;padding:6px;line-height:0"><span></span><span></span><span></span></button>
   </div>
 </nav>
+<div id="scrollProgress"><div id="scrollProgressBar"></div></div>
 
 <div class="mobile-menu" id="mobileMenu">
   <a href="#garanties" onclick="closeMobile()">Engagements</a>
@@ -740,6 +743,17 @@
 
 <!-- GLOBAL SITE SCRIPT (theme, nav, reveal, contact form, etc.) -->
 <script>
+  // Barre de progression de lecture
+  const progressBar = document.getElementById('scrollProgressBar');
+  function updateProgress(){
+    const scrollTop = window.scrollY;
+    const docH = document.documentElement.scrollHeight - window.innerHeight;
+    const pct = docH > 0 ? Math.min(100, (scrollTop / docH) * 100) : 0;
+    progressBar.style.width = pct + '%';
+  }
+  window.addEventListener('scroll', updateProgress, { passive: true });
+  updateProgress();
+
   // NAV scrolled
   const nav = document.getElementById('main-nav');
   const onScroll = () => {
