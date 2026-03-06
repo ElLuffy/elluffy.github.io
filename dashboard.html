@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SPV — Tour de Contrôle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root{
+      --blue:#1f3a8a;--blue-l:#2a4db5;--blue-glow:rgba(31,58,138,.25);
+      --green:#16a34a;--red:#dc2626;--gold:#c9a327;--orange:#ea580c;
+      --font-title:'Montserrat',sans-serif;--font-body:'Inter',sans-serif;--font-mono:'JetBrains Mono',monospace;
+      --tr:.25s cubic-bezier(.4,0,.2,1);
+    }
+    [data-theme="dark"]{
+      --bg:#080c14;--bg2:#0d1220;--bg3:#111827;--card:#121928;--card-h:#161f31;
+      --border:rgba(255,255,255,.06);--border-s:rgba(255,255,255,.12);
+      --txt:#f1f5f9;--txt2:rgba(241,245,249,.55);--txt3:rgba(241,245,249,.3);
+      --shadow:0 0 0 1px rgba(255,255,255,.04),0 8px 32px rgba(0,0,0,.7);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;overflow:hidden}
+    body{font-family:var(--font-body);background:var(--bg);color:var(--txt);display:flex;overflow:hidden}
+
+    /* ── SIDEBAR ── */
+    .sidebar{width:220px;min-width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:10;transition:width var(--tr)}
+    .sb-logo{padding:1.4rem 1.2rem;display:flex;align-items:center;gap:.7rem;border-bottom:1px solid var(--border)}
+    .sb-logo-icon{width:40px;height:40px;background:var(--blue);border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
+    .sb-logo-icon svg{width:36px;height:36px;fill:#fff;display:block}
+    .sb-logo-text{font-family:var(--font-title);font-weight:800;font-size:.9rem;letter-spacing:.03em}
+    .sb-logo-sub{font-family:var(--font-title);font-size:.45rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--txt3)}
+    .sb-nav{flex:1;padding:.8rem 0;overflow-y:auto}
+    .sb-section{padding:.4rem 1rem .2rem;font-family:var(--font-title);font-size:.55rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--txt3);margin-top:.4rem}
+    .sb-item{display:flex;align-items:center;gap:.7rem;padding:.55rem 1rem;margin:.1rem .5rem;border-radius:6px;cursor:pointer;transition:all var(--tr);font-size:.8rem;font-weight:500;color:var(--txt2)}
+    .sb-item svg{width:15px;height:15px;stroke:currentColor;fill:none;flex-shrink:0;stroke-width:1.8}
+    .sb-item:hover{background:rgba(255,255,255,.04);color:var(--txt)}
+    .sb-item.active{background:rgba(31,58,138,.2);color:#fff;border:1px solid rgba(31,58,138,.3)}
+    .sb-item.active svg{stroke:#fff}
+    .sb-bottom{padding:1rem;border-top:1px solid var(--border)}
+    .sb-user{display:flex;align-items:center;gap:.6rem;padding:.6rem .8rem;border-radius:6px;background:rgba(255,255,255,.03)}
+    .sb-avatar{width:28px;height:28px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-family:var(--font-title);font-size:.65rem;font-weight:800;color:#fff;flex-shrink:0}
+    .sb-user-info{flex:1;min-width:0}
+    .sb-user-name{font-size:.75rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sb-user-role{font-size:.62rem;color:var(--txt3)}
+    .sb-logout{width:22px;height:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:4px;transition:background var(--tr);flex-shrink:0}
+    .sb-logout:hover{background:rgba(220,38,38,.15)}
+    .sb-logout svg{width:13px;height:13px;stroke:#ef4444;fill:none;stroke-width:2}
+
+    /* ── MAIN ── */
+    .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+    .topbar{height:56px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 1.8rem;flex-shrink:0}
+    .topbar-left{display:flex;align-items:center;gap:1rem}
+    .page-title{font-family:var(--font-title);font-weight:700;font-size:1rem;letter-spacing:-.01em}
+    .page-sub{font-size:.72rem;color:var(--txt3);font-family:var(--font-mono)}
+    .topbar-right{display:flex;align-items:center;gap:.8rem}
+    .live-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;animation:livePulse 2s infinite;flex-shrink:0}
+    @keyframes livePulse{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.4)}50%{box-shadow:0 0 0 5px rgba(34,197,94,0)}}
+    .live-label{font-size:.72rem;color:#22c55e;font-weight:600;font-family:var(--font-mono)}
+    .btn-refresh{display:inline-flex;align-items:center;gap:.4rem;padding:.4rem .9rem;background:rgba(255,255,255,.05);border:1px solid var(--border-s);border-radius:4px;color:var(--txt2);font-size:.75rem;font-weight:500;cursor:pointer;transition:all var(--tr);font-family:var(--font-body)}
+    .btn-refresh:hover{background:rgba(255,255,255,.08);color:var(--txt)}
+    .btn-refresh svg{width:13px;height:13px;stroke:currentColor;fill:none}
+    .date-range{display:flex;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:4px;overflow:hidden}
+    .date-btn{padding:.35rem .75rem;font-size:.72rem;font-weight:600;cursor:pointer;color:var(--txt2);transition:all var(--tr);font-family:var(--font-title);letter-spacing:.04em;border:none;background:none}
+    .date-btn.active{background:var(--blue);color:#fff}
+    .date-btn:hover:not(.active){background:rgba(255,255,255,.05);color:var(--txt)}
+    .content{flex:1;overflow-y:auto;padding:1.5rem 1.8rem}
+
+    /* ── PAGES ── */
+    .page{display:none}.page.active{display:block}
+
+    /* ── STAT CARDS ── */
+    .cards-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem}
+    .stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1.2rem 1.4rem;position:relative;overflow:hidden;transition:border-color var(--tr),box-shadow var(--tr)}
+    .stat-card:hover{border-color:var(--border-s);box-shadow:var(--shadow)}
+    .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:2px 2px 0 0;opacity:0;transition:opacity var(--tr)}
+    .stat-card:hover::before{opacity:1}
+    .sc-blue::before{background:var(--blue)}
+    .sc-green::before{background:var(--green)}
+    .sc-gold::before{background:var(--gold)}
+    .sc-orange::before{background:var(--orange)}
+    .stat-label{font-family:var(--font-title);font-size:.58rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--txt3);margin-bottom:.6rem;display:flex;align-items:center;gap:.4rem}
+    .stat-label svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2}
+    .stat-value{font-family:var(--font-title);font-weight:900;font-size:2rem;letter-spacing:-.04em;line-height:1}
+    .stat-delta{display:inline-flex;align-items:center;gap:.2rem;margin-top:.5rem;font-size:.7rem;font-weight:600;font-family:var(--font-mono)}
+    .delta-up{color:#22c55e}.delta-down{color:#ef4444}.delta-neu{color:var(--txt3)}
+    .stat-foot{font-size:.68rem;color:var(--txt3);margin-top:.3rem}
+
+    /* ── CHARTS ── */
+    .charts-row{display:grid;grid-template-columns:2fr 1fr;gap:1rem;margin-bottom:1rem}
+    .chart-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1.3rem}
+    .chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem}
+    .chart-title{font-family:var(--font-title);font-weight:700;font-size:.82rem;letter-spacing:-.01em}
+    .chart-sub{font-size:.68rem;color:var(--txt3);margin-top:.1rem}
+    .chart-wrap{position:relative}
+
+    /* ── TABLE ── */
+    .table-card{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:1rem;overflow:hidden}
+    .table-header{padding:1rem 1.3rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+    .table-header h3{font-family:var(--font-title);font-weight:700;font-size:.82rem}
+    table{width:100%;border-collapse:collapse}
+    th{font-family:var(--font-title);font-size:.58rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--txt3);padding:.65rem 1.3rem;text-align:left;border-bottom:1px solid var(--border);background:rgba(0,0,0,.2)}
+    td{font-size:.78rem;padding:.7rem 1.3rem;border-bottom:1px solid var(--border);color:var(--txt2)}
+    tr:last-child td{border-bottom:none}
+    tr:hover td{background:rgba(255,255,255,.02);color:var(--txt)}
+    .badge{display:inline-flex;align-items:center;gap:.3rem;padding:.2rem .6rem;border-radius:999px;font-size:.65rem;font-weight:600;font-family:var(--font-title);letter-spacing:.06em}
+    .badge-blue{background:rgba(31,58,138,.2);color:#6b9ef8;border:1px solid rgba(31,58,138,.3)}
+    .badge-green{background:rgba(22,163,74,.15);color:#4ade80;border:1px solid rgba(22,163,74,.3)}
+    .badge-gold{background:rgba(201,163,39,.12);color:#f0cc4e;border:1px solid rgba(201,163,39,.2)}
+    .badge-orange{background:rgba(234,88,12,.12);color:#fb923c;border:1px solid rgba(234,88,12,.2)}
+    .badge-gray{background:rgba(255,255,255,.05);color:var(--txt2);border:1px solid var(--border-s)}
+    .mono{font-family:var(--font-mono);font-size:.72rem}
+
+    /* ── HEATMAP ── */
+    .heatmap-grid{display:grid;grid-template-columns:repeat(24,1fr);gap:3px;padding:0 .2rem}
+    .hm-cell{height:28px;border-radius:3px;transition:all var(--tr);cursor:default;position:relative}
+    .hm-cell:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);background:rgba(0,0,0,.9);color:#fff;font-size:.62rem;white-space:nowrap;padding:.2rem .5rem;border-radius:4px;pointer-events:none;z-index:99}
+    .hm-labels{display:grid;grid-template-columns:repeat(24,1fr);gap:3px;padding:.4rem .2rem 0}
+    .hm-label{font-family:var(--font-mono);font-size:.5rem;color:var(--txt3);text-align:center}
+
+    /* ── SCROLL DEPTH ── */
+    .depth-bars{display:flex;flex-direction:column;gap:.7rem;padding:.2rem 0}
+    .depth-row{display:flex;align-items:center;gap:1rem}
+    .depth-label{font-family:var(--font-mono);font-size:.7rem;color:var(--txt2);width:40px;flex-shrink:0}
+    .depth-bar-wrap{flex:1;height:8px;background:rgba(255,255,255,.06);border-radius:999px;overflow:hidden}
+    .depth-bar{height:100%;border-radius:999px;transition:width 1s cubic-bezier(.34,1.56,.64,1)}
+    .depth-pct{font-family:var(--font-mono);font-size:.68rem;color:var(--txt3);width:38px;text-align:right;flex-shrink:0}
+
+    /* ── UTM GENERATOR ── */
+    .utm-section{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+    .utm-builder{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1.3rem}
+    .utm-title{font-family:var(--font-title);font-weight:700;font-size:.82rem;margin-bottom:1.1rem}
+    .input-group{display:flex;flex-direction:column;gap:.3rem;margin-bottom:.8rem}
+    .input-group label{font-family:var(--font-title);font-size:.58rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--txt3)}
+    .input-group input,.input-group select{width:100%;padding:.55rem .8rem;background:rgba(255,255,255,.04);border:1px solid var(--border-s);border-radius:5px;color:var(--txt);font-family:var(--font-body);font-size:.8rem;outline:none;transition:border-color var(--tr)}
+    .input-group input:focus,.input-group select:focus{border-color:rgba(31,58,138,.6);box-shadow:0 0 0 3px rgba(31,58,138,.1)}
+    .input-group select option{background:var(--card)}
+    .utm-preview{background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:6px;padding:.8rem 1rem;margin:1rem 0;font-family:var(--font-mono);font-size:.68rem;color:#6b9ef8;word-break:break-all;min-height:48px;line-height:1.5}
+    .utm-actions{display:flex;gap:.6rem}
+    .btn-primary{display:inline-flex;align-items:center;gap:.4rem;padding:.6rem 1.2rem;background:var(--blue);color:#fff;border-radius:5px;font-family:var(--font-title);font-weight:700;font-size:.75rem;letter-spacing:.04em;cursor:pointer;transition:all var(--tr);border:none;text-transform:uppercase}
+    .btn-primary:hover{background:var(--blue-l);transform:translateY(-1px)}
+    .btn-sec{display:inline-flex;align-items:center;gap:.4rem;padding:.6rem 1.2rem;background:rgba(255,255,255,.05);color:var(--txt2);border-radius:5px;font-family:var(--font-title);font-weight:600;font-size:.75rem;letter-spacing:.04em;cursor:pointer;transition:all var(--tr);border:1px solid var(--border-s)}
+    .btn-sec:hover{background:rgba(255,255,255,.08);color:var(--txt)}
+    .btn-sec svg,.btn-primary svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0}
+
+    /* ── CONVERSION ── */
+    .conv-row{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1rem}
+
+    /* ── LOGIN SCREEN ── */
+    #loginScreen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999}
+    .login-box{width:380px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:2.5rem;box-shadow:0 24px 80px rgba(0,0,0,.8)}
+    .login-logo{display:flex;align-items:center;gap:.8rem;margin-bottom:2rem;justify-content:center}
+    .login-logo-icon{width:56px;height:56px;background:var(--blue);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+    .login-logo-icon svg{width:50px;height:50px;fill:#fff;display:block}
+    .login-title-wrap h1{font-family:var(--font-title);font-weight:900;font-size:1.1rem}
+    .login-title-wrap p{font-size:.72rem;color:var(--txt3);font-family:var(--font-mono)}
+    .login-field{margin-bottom:1rem}
+    .login-field label{display:block;font-family:var(--font-title);font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--txt3);margin-bottom:.4rem}
+    .login-field input{width:100%;padding:.75rem 1rem;background:rgba(255,255,255,.04);border:1px solid var(--border-s);border-radius:6px;color:var(--txt);font-family:var(--font-body);font-size:.875rem;outline:none;transition:border-color var(--tr)}
+    .login-field input:focus{border-color:rgba(31,58,138,.6);box-shadow:0 0 0 3px rgba(31,58,138,.12)}
+    .login-btn{width:100%;padding:.8rem;background:var(--blue);color:#fff;border-radius:6px;font-family:var(--font-title);font-weight:700;font-size:.85rem;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:all var(--tr);border:none;margin-top:.5rem;display:flex;align-items:center;justify-content:center;gap:.5rem}
+    .login-btn:hover{background:var(--blue-l);transform:translateY(-1px)}
+    .login-error{color:#ef4444;font-size:.75rem;margin-top:.6rem;text-align:center;min-height:1rem;font-family:var(--font-mono)}
+    #dashApp{display:none;width:100%;height:100%;overflow:hidden;display:flex;flex-direction:row}
+
+    /* ── MISC ── */
+    .empty-state{padding:3rem;text-align:center;color:var(--txt3);font-size:.82rem}
+    .empty-state svg{width:36px;height:36px;stroke:var(--txt3);fill:none;margin:0 auto 1rem}
+    .tag-source{display:inline-flex;align-items:center;gap:.3rem;font-size:.7rem;padding:.15rem .5rem;border-radius:3px;font-family:var(--font-mono)}
+    .tag-direct{background:rgba(107,158,248,.1);color:#6b9ef8}
+    .tag-organic{background:rgba(74,222,128,.1);color:#4ade80}
+    .tag-social{background:rgba(251,146,60,.1);color:#fb923c}
+    .tag-email{background:rgba(240,204,78,.1);color:#f0cc4e}
+    .tag-other{background:rgba(255,255,255,.05);color:var(--txt2)}
+    .progress-bar{height:4px;background:rgba(255,255,255,.06);border-radius:999px;overflow:hidden;margin-top:.5rem}
+    .progress-fill{height:100%;border-radius:999px;background:var(--blue)}
+    .tooltip-copy{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%) translateY(0);background:#22c55e;color:#fff;padding:.5rem 1.2rem;border-radius:999px;font-size:.75rem;font-weight:600;font-family:var(--font-title);opacity:0;transition:opacity .3s;pointer-events:none;z-index:999}
+    .tooltip-copy.show{opacity:1}
+    .section-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+    .full-row{margin-bottom:1rem}
+
+    /* scrollbar */
+    ::-webkit-scrollbar{width:5px;height:5px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:99px}
+    ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.18)}
+
+    @keyframes spin{to{transform:rotate(360deg)}}
+  /* INACTIVITY MODAL */
+  .inact-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9998;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);opacity:0;pointer-events:none;transition:opacity .3s}
+  .inact-overlay.show{opacity:1;pointer-events:all}
+  .inact-box{background:var(--card);border:1px solid var(--border-s);border-radius:14px;padding:2rem 2.4rem;max-width:360px;width:90%;text-align:center;box-shadow:0 24px 80px rgba(0,0,0,.9)}
+  .inact-icon{width:48px;height:48px;border-radius:50%;background:rgba(234,88,12,.12);border:1px solid rgba(234,88,12,.2);display:flex;align-items:center;justify-content:center;margin:0 auto 1.2rem}
+  .inact-icon svg{width:22px;height:22px;stroke:#fb923c;fill:none;stroke-width:2}
+  .inact-title{font-family:var(--font-title);font-weight:700;font-size:1rem;margin-bottom:.5rem}
+  .inact-sub{font-size:.8rem;color:var(--txt2);line-height:1.5;margin-bottom:1.4rem}
+  .inact-counter{font-family:var(--font-mono);font-size:2rem;font-weight:700;color:#fb923c;margin-bottom:1.4rem;line-height:1}
+  .inact-btn{width:100%;padding:.75rem;background:var(--blue);color:#fff;border:none;border-radius:6px;font-family:var(--font-title);font-weight:700;font-size:.85rem;letter-spacing:.04em;cursor:pointer;transition:background var(--tr)}
+  .inact-btn:hover{background:var(--blue-l)}
+    .spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+  </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-icon">
+        <svg viewBox="0 0 180 180" fill="#fff"><path d="M89.4 60.9L51.6 90.8c-.08.06-.16.07-.24.03-.08-.04-.12-.11-.12-.2V80.6c0-.04.02-.07.05-.1L89.2 50.5c.16-.12.32-.12.47 0L127.5 80.2c.14.11.19.25.19.43-.01 2.56-.01 4.74-.02 6.53-.01 1.03-.27 1.97-.81 2.82-.03.04-.06.04-.1.01L89.6 60.9c-.06-.04-.13-.04-.19 0z"/><path d="M98.57 108.28c-.04.03-.08.03-.11.02-.04-.01-.07-.04-.08-.08-.16-.34-.29-.59-.43-.78-.46-.65-1.28-1.86-2.47-3.64-.07-.1-.11-.21-.14-.32-.23-1.01-.25-2.6.44-3.53.4-.55.74-.93 1.02-1.14 1.89-1.4 2.92-2.13 4.44-3.55 1.95-1.85 3.58-3.69 4.84-6.09.25-.47.45-.96.6-1.46.27-.86.43-1.36.47-1.51.07-.24.08-.83.03-1.74-.01-.15-.04-.29-.1-.42-.04-.08-.18-.49-.42-1.22-.34-1.04-.98-1.95-1.72-2.7-.58-.6-1.27-.98-2.08-1.14-.65-.13-1.33.24-2.03.53-.17.07-.32.04-.43-.1-.89-1.07-1.73-2.12-2.51-3.16-.17-.23-.62-.45-.93-.63-.45-.28-.9-.32-1.37-.13-.38.15-.8.41-1.26.77-2.23 1.77-6.4 5.13-12.5 10.08-4.79 3.88-9.64 7.81-14.55 11.78-.97.78-1.5 1.31-1.59 1.58-.17.5-.21 1.02-.1 1.54.05.27.31.7.78 1.29 1.04 1.29 2.2 2.84 3.49 4.63.28.39.74 1.02 1.12 1.25 1.07.64 2.22.26 3.11-.49.97-.82 2.07-1.72 3.31-2.71 4.53-3.62 8.96-7.19 13.28-10.7.45-.37 1.02-.82 1.7-1.35.61-.47 1.18-.92 1.71-1.35 2.94-2.4 5.65-4.62 8.12-6.65.82-.67 1.04-1.5.68-2.48-.03-.07-.07-.14-.11-.2l-1.38-1.74c-.06-.07-.07-.15-.04-.24.04-.09.09-.14.18-.15.68-.12 1.63-.25 2.16.2.67.56 1.1 1.2 1.55 1.98.31.54.5 1.02.57 1.45.22 1.34.13 2.52-.27 3.54-.9 2.33-2.65 4.96-4.79 6.74-.32.27-.76.66-1.31 1.18-.94.89-2.33 1.77-3.23 2.48-.62.49-1.08.98-1.4 1.48-.21.34-.46.96-.73 1.86-.33 1.12 0 2.35.59 3.35.55.92 1.47 2.29 2.78 4.1.13.18.08.37-.18.56-.64.53-1.18.98-1.6 1.36-.04.03-.04.07 0 .11l1.73 2.19c.05.06.04.11-.07.17-2.08 1.15-4.18 2.17-6.31 3.06-.56.24-.92.46-1.41.6-.64.19-1.16.55-1.8.7-.49.11-.93.26-1.29.44-.5.25-.87.28-1.4.42-.09.03-.18.06-.27.1-.46.22-.95.38-1.45.49-.92.2-1.58.6-2.48.67-.47.04-1.07.18-1.8.42-.9.3-2.21.29-3.01.48-2.14.51-3.82.54-6.38.53-1.63-.01-2.66.02-4.04-.35-.89-.24-1.53-.39-1.91-.45l-.18-.05-1.71-.77c-.03-.01-.06-.03-.09-.05l-.88-.63c-.03-.02-.06-.05-.07-.08-.3-.42-.45-.87-.45-1.34-.01-12.9.01-23.21.02-30.92 0-.12.05-.22.14-.3l28.63-22.66c.06-.05.12-.05.18 0 3.46 2.67 5.19 4 5.2 4.01 1.7 1.32 3.14 2.45 4.31 3.39.05.04.31.24.79.6 3.09 2.37 8.92 6.9 17.47 13.58.46.36 1.16.91 1.26 1.56.03.22.04 1.55.03 4.01-.01.91-.37 1.24-1.04 1.97-.57.63-1.13 1.18-1.66 1.66-4.11 3.75-7.92 7.17-11.42 10.27-.22.19-.46.37-.7.55-.08.05-.09.12-.02.2l1.72 2.18c.05.06.04.12-.06.18l-3 2.17c-.14.1-.28.1-.4-.01-.76-.74-1.42-1.49-1.96-2.26-.04-.05-.09-.08-.15-.09-.06-.01-.11.01-.16.04z"/></svg>
+      </div>
+      <div class="login-title-wrap">
+        <h1>Tour de Contrôle</h1>
+        <p>SPV — Espace privé</p>
+      </div>
+    </div>
+    <div class="login-field">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="admin@spv-peinture.fr" autocomplete="email"/>
+    </div>
+    <div class="login-field">
+      <label>Mot de passe</label>
+      <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password"/>
+    </div>
+    <button class="login-btn" onclick="doLogin()" id="loginBtn">
+      <span id="loginBtnText">Connexion</span>
+    </button>
+    <div class="login-error" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- MAIN APP (hidden until logged in) -->
+<div id="dashApp">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-icon">
+        <svg viewBox="0 0 180 180" fill="#fff"><path d="M89.4 60.9L51.6 90.8c-.08.06-.16.07-.24.03-.08-.04-.12-.11-.12-.2V80.6c0-.04.02-.07.05-.1L89.2 50.5c.16-.12.32-.12.47 0L127.5 80.2c.14.11.19.25.19.43-.01 2.56-.01 4.74-.02 6.53-.01 1.03-.27 1.97-.81 2.82-.03.04-.06.04-.1.01L89.6 60.9c-.06-.04-.13-.04-.19 0z"/><path d="M98.57 108.28c-.04.03-.08.03-.11.02-.04-.01-.07-.04-.08-.08-.16-.34-.29-.59-.43-.78-.46-.65-1.28-1.86-2.47-3.64-.07-.1-.11-.21-.14-.32-.23-1.01-.25-2.6.44-3.53.4-.55.74-.93 1.02-1.14 1.89-1.4 2.92-2.13 4.44-3.55 1.95-1.85 3.58-3.69 4.84-6.09.25-.47.45-.96.6-1.46.27-.86.43-1.36.47-1.51.07-.24.08-.83.03-1.74-.01-.15-.04-.29-.1-.42-.04-.08-.18-.49-.42-1.22-.34-1.04-.98-1.95-1.72-2.7-.58-.6-1.27-.98-2.08-1.14-.65-.13-1.33.24-2.03.53-.17.07-.32.04-.43-.1-.89-1.07-1.73-2.12-2.51-3.16-.17-.23-.62-.45-.93-.63-.45-.28-.9-.32-1.37-.13-.38.15-.8.41-1.26.77-2.23 1.77-6.4 5.13-12.5 10.08-4.79 3.88-9.64 7.81-14.55 11.78-.97.78-1.5 1.31-1.59 1.58-.17.5-.21 1.02-.1 1.54.05.27.31.7.78 1.29 1.04 1.29 2.2 2.84 3.49 4.63.28.39.74 1.02 1.12 1.25 1.07.64 2.22.26 3.11-.49.97-.82 2.07-1.72 3.31-2.71 4.53-3.62 8.96-7.19 13.28-10.7.45-.37 1.02-.82 1.7-1.35.61-.47 1.18-.92 1.71-1.35 2.94-2.4 5.65-4.62 8.12-6.65.82-.67 1.04-1.5.68-2.48-.03-.07-.07-.14-.11-.2l-1.38-1.74c-.06-.07-.07-.15-.04-.24.04-.09.09-.14.18-.15.68-.12 1.63-.25 2.16.2.67.56 1.1 1.2 1.55 1.98.31.54.5 1.02.57 1.45.22 1.34.13 2.52-.27 3.54-.9 2.33-2.65 4.96-4.79 6.74-.32.27-.76.66-1.31 1.18-.94.89-2.33 1.77-3.23 2.48-.62.49-1.08.98-1.4 1.48-.21.34-.46.96-.73 1.86-.33 1.12 0 2.35.59 3.35.55.92 1.47 2.29 2.78 4.1.13.18.08.37-.18.56-.64.53-1.18.98-1.6 1.36-.04.03-.04.07 0 .11l1.73 2.19c.05.06.04.11-.07.17-2.08 1.15-4.18 2.17-6.31 3.06-.56.24-.92.46-1.41.6-.64.19-1.16.55-1.8.7-.49.11-.93.26-1.29.44-.5.25-.87.28-1.4.42-.09.03-.18.06-.27.1-.46.22-.95.38-1.45.49-.92.2-1.58.6-2.48.67-.47.04-1.07.18-1.8.42-.9.3-2.21.29-3.01.48-2.14.51-3.82.54-6.38.53-1.63-.01-2.66.02-4.04-.35-.89-.24-1.53-.39-1.91-.45l-.18-.05-1.71-.77c-.03-.01-.06-.03-.09-.05l-.88-.63c-.03-.02-.06-.05-.07-.08-.3-.42-.45-.87-.45-1.34-.01-12.9.01-23.21.02-30.92 0-.12.05-.22.14-.3l28.63-22.66c.06-.05.12-.05.18 0 3.46 2.67 5.19 4 5.2 4.01 1.7 1.32 3.14 2.45 4.31 3.39.05.04.31.24.79.6 3.09 2.37 8.92 6.9 17.47 13.58.46.36 1.16.91 1.26 1.56.03.22.04 1.55.03 4.01-.01.91-.37 1.24-1.04 1.97-.57.63-1.13 1.18-1.66 1.66-4.11 3.75-7.92 7.17-11.42 10.27-.22.19-.46.37-.7.55-.08.05-.09.12-.02.2l1.72 2.18c.05.06.04.12-.06.18l-3 2.17c-.14.1-.28.1-.4-.01-.76-.74-1.42-1.49-1.96-2.26-.04-.05-.09-.08-.15-.09-.06-.01-.11.01-.16.04z"/></svg>
+      </div>
+      <div>
+        <div class="sb-logo-text">SPV</div>
+        <div class="sb-logo-sub">Tour de Contrôle</div>
+      </div>
+    </div>
+    <nav class="sb-nav">
+      <div class="sb-section">Analytique</div>
+      <div class="sb-item active" onclick="showPage('overview',this)">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Vue d'ensemble
+      </div>
+      <div class="sb-item" onclick="showPage('visitors',this)">
+        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+        Visiteurs
+      </div>
+      <div class="sb-item" onclick="showPage('conversion',this)">
+        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Conversions
+      </div>
+      <div class="sb-item" onclick="showPage('scroll',this)">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="22"/><polyline points="17 7 12 2 7 7"/><polyline points="17 17 12 22 7 17"/></svg>
+        Scroll & Temps
+      </div>
+      <div class="sb-section">Campagnes</div>
+      <div class="sb-item" onclick="showPage('utm',this)">
+        <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+        Liens trackés
+      </div>
+      <div class="sb-item" onclick="showPage('sources',this)">
+        <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        Sources
+      </div>
+      <div class="sb-section">Outils</div>
+      <div class="sb-item" onclick="exportCSV()">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export CSV
+      </div>
+    </nav>
+    <div class="sb-bottom">
+      <div class="sb-user">
+        <div class="sb-avatar" id="sbAvatar">A</div>
+        <div class="sb-user-info">
+          <div class="sb-user-name" id="sbEmail">admin</div>
+          <div class="sb-user-role">Administrateur</div>
+        </div>
+        <div class="sb-logout" onclick="doLogout()" title="Déconnexion">
+          <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div>
+          <div class="page-title" id="topTitle">Vue d'ensemble</div>
+          <div class="page-sub" id="topSub">Chargement…</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="date-range">
+          <button class="date-btn" onclick="setRange(7,this)">7j</button>
+          <button class="date-btn active" onclick="setRange(30,this)">30j</button>
+          <button class="date-btn" onclick="setRange(90,this)">90j</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:.4rem">
+          <div class="live-dot"></div>
+          <span class="live-label">LIVE</span>
+        </div>
+        <button class="btn-refresh" onclick="loadAll()">
+          <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+          Actualiser
+        </button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ── PAGE: OVERVIEW ── -->
+      <div class="page active" id="page-overview">
+        <div class="cards-grid" id="overviewCards">
+          <div class="stat-card sc-blue"><div class="stat-label"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Visiteurs</div><div class="stat-value" id="kpiVisitors">—</div><div class="stat-delta delta-neu" id="kpiVDelta">—</div><div class="stat-foot" id="kpiVFoot">période sélectionnée</div></div>
+          <div class="stat-card sc-green"><div class="stat-label"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Formulaires</div><div class="stat-value" id="kpiForms">—</div><div class="stat-delta delta-neu" id="kpiFDelta">—</div><div class="stat-foot" id="kpiFoot">demandes de devis</div></div>
+          <div class="stat-card sc-gold"><div class="stat-label"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Taux conversion</div><div class="stat-value" id="kpiConv">—</div><div class="stat-delta delta-neu" id="kpiCDelta">—</div><div class="stat-foot">visiteurs → devis</div></div>
+          <div class="stat-card sc-orange"><div class="stat-label"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Temps moyen</div><div class="stat-value" id="kpiTime">—</div><div class="stat-delta delta-neu" id="kpiTDelta">—</div><div class="stat-foot">sur le site</div></div>
+        </div>
+        <div class="charts-row">
+          <div class="chart-card">
+            <div class="chart-header"><div><div class="chart-title">Trafic quotidien</div><div class="chart-sub">Visites par jour sur la période</div></div></div>
+            <div class="chart-wrap"><canvas id="trafficChart" height="200"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header"><div><div class="chart-title">Appareils</div><div class="chart-sub">Répartition</div></div></div>
+            <div class="chart-wrap"><canvas id="deviceChart" height="200"></canvas></div>
+          </div>
+        </div>
+        <div class="section-row">
+          <div class="chart-card">
+            <div class="chart-header"><div><div class="chart-title">Nouvelles vs. retours</div><div class="chart-sub">Fidélité des visiteurs</div></div></div>
+            <div class="chart-wrap"><canvas id="newReturnChart" height="180"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header"><div><div class="chart-title">Top navigateurs</div><div class="chart-sub">Part de marché</div></div></div>
+            <div id="browserList" style="padding:.5rem 0"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── PAGE: VISITORS ── -->
+      <div class="page" id="page-visitors">
+        <div class="chart-card full-row">
+          <div class="chart-header"><div><div class="chart-title">Heures de pointe</div><div class="chart-sub">Nombre de visites par heure (0h–23h)</div></div></div>
+          <div class="heatmap-grid" id="heatmapGrid"></div>
+          <div class="hm-labels" id="heatmapLabels"></div>
+        </div>
+        <div class="table-card">
+          <div class="table-header"><h3>Derniers visiteurs</h3><span style="font-size:.7rem;color:var(--txt3)" id="visitorCount"></span></div>
+          <table><thead><tr><th>Date</th><th>Appareil</th><th>Navigateur</th><th>Source</th><th>Nouveau</th><th>Formulaire</th><th>Scroll</th></tr></thead>
+          <tbody id="visitorTable"></tbody></table>
+        </div>
+      </div>
+
+      <!-- ── PAGE: CONVERSION ── -->
+      <div class="page" id="page-conversion">
+        <div class="conv-row">
+          <div class="stat-card sc-green"><div class="stat-label">Formulaires envoyés</div><div class="stat-value" id="convForms">—</div><div class="stat-foot">sur la période</div></div>
+          <div class="stat-card sc-blue"><div class="stat-label">Visiteurs uniques</div><div class="stat-value" id="convVisitors">—</div><div class="stat-foot">sessions distinctes</div></div>
+          <div class="stat-card sc-gold"><div class="stat-label">Taux de conversion</div><div class="stat-value" id="convRate">—</div><div class="stat-foot">visiteurs → devis</div></div>
+        </div>
+        <div class="charts-row">
+          <div class="chart-card">
+            <div class="chart-header"><div><div class="chart-title">Conversions dans le temps</div><div class="chart-sub">Formulaires par jour</div></div></div>
+            <canvas id="convChart" height="200"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header"><div><div class="chart-title">Funnel</div><div class="chart-sub">Du visiteur au devis</div></div></div>
+            <div id="funnelView" style="padding:1rem 0"></div>
+          </div>
+        </div>
+        <div class="table-card">
+          <div class="table-header"><h3>Formulaires reçus</h3></div>
+          <table><thead><tr><th>Date</th><th>Source</th><th>Appareil</th><th>Nouveau visiteur</th></tr></thead>
+          <tbody id="formTable"></tbody></table>
+        </div>
+      </div>
+
+      <!-- ── PAGE: SCROLL ── -->
+      <div class="page" id="page-scroll">
+        <div class="section-row">
+          <div class="chart-card">
+            <div class="chart-header"><div><div class="chart-title">Profondeur de scroll</div><div class="chart-sub">% de visiteurs ayant atteint chaque zone</div></div></div>
+            <div class="depth-bars" id="depthBars"></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header"><div><div class="chart-title">Temps sur le site</div><div class="chart-sub">Distribution des durées de session</div></div></div>
+            <canvas id="timeChart" height="220"></canvas>
+          </div>
+        </div>
+        <div class="chart-card full-row">
+          <div class="chart-header"><div><div class="chart-title">Scroll moyen par source</div><div class="chart-sub">Quel canal amène les visiteurs les plus engagés</div></div></div>
+          <canvas id="scrollSourceChart" height="160"></canvas>
+        </div>
+      </div>
+
+      <!-- ── PAGE: UTM LINKS ── -->
+      <div class="page" id="page-utm">
+        <div class="utm-section">
+          <div class="utm-builder">
+            <div class="utm-title">Générer un lien tracké</div>
+            <div class="input-group"><label>Nom du lien (interne)</label><input type="text" id="utmName" placeholder="ex: Flyer Salon Habitat Nantes"/></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem">
+              <div class="input-group"><label>Source</label>
+                <select id="utmSource">
+                  <option value="facebook">Facebook</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="google">Google</option>
+                  <option value="flyer">Flyer papier</option>
+                  <option value="email">Email</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="leboncoin">Leboncoin</option>
+                  <option value="autre">Autre</option>
+                </select>
+              </div>
+              <div class="input-group"><label>Support</label>
+                <select id="utmMedium">
+                  <option value="social">Réseaux sociaux</option>
+                  <option value="print">Impression</option>
+                  <option value="email">Email</option>
+                  <option value="cpc">Publicité payante</option>
+                  <option value="organic">Organique</option>
+                  <option value="referral">Référence</option>
+                </select>
+              </div>
+            </div>
+            <div class="input-group"><label>Campagne</label><input type="text" id="utmCampaign" placeholder="ex: promo-printemps-2025"/></div>
+            <div class="input-group"><label>URL du site</label><input type="text" id="utmBaseUrl" value="https://spv-peinture.fr"/></div>
+            <div class="utm-preview" id="utmPreview">https://spv-peinture.fr</div>
+            <div class="utm-actions">
+              <button class="btn-primary" onclick="saveUtmLink()">
+                <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Sauvegarder
+              </button>
+              <button class="btn-sec" onclick="copyUtmLink()">
+                <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                Copier
+              </button>
+            </div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header"><div><div class="chart-title">Performance par source UTM</div><div class="chart-sub">Visites générées</div></div></div>
+            <canvas id="utmChart" height="240"></canvas>
+          </div>
+        </div>
+        <div class="table-card">
+          <div class="table-header"><h3>Liens générés</h3><span style="font-size:.7rem;color:var(--txt3)" id="utmLinkCount"></span></div>
+          <table><thead><tr><th>Nom</th><th>Source</th><th>Campagne</th><th>Visites</th><th>Conversions</th><th>Créé le</th><th>Actions</th></tr></thead>
+          <tbody id="utmTable"></tbody></table>
+        </div>
+      </div>
+
+      <!-- ── PAGE: SOURCES ── -->
+      <div class="page" id="page-sources">
+        <div class="charts-row">
+          <div class="chart-card">
+            <div class="chart-header"><div><div class="chart-title">Sources de trafic</div><div class="chart-sub">Origine des visiteurs</div></div></div>
+            <canvas id="sourcePieChart" height="240"></canvas>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header"><div><div class="chart-title">Trafic par source</div><div class="chart-sub">Évolution dans le temps</div></div></div>
+            <canvas id="sourceLineChart" height="240"></canvas>
+          </div>
+        </div>
+        <div class="table-card">
+          <div class="table-header"><h3>Détail par source</h3></div>
+          <table><thead><tr><th>Source</th><th>Type</th><th>Visites</th><th>Part</th><th>Conversions</th><th>Scroll moyen</th></tr></thead>
+          <tbody id="sourceTable"></tbody></table>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /dashApp -->
+
+<div class="tooltip-copy" id="copyToast">✓ Lien copié !</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// CONFIG — remplace avec tes clés Supabase
+// ══════════════════════════════════════════════════════
+const SUPABASE_URL  = "https://togigjvqmtojnwnyipej.supabase.co";
+const SUPABASE_KEY  = "sb_publishable_97IFltYBm28jnNBqnaORxQ_1Ox8txSI";
+
+let sb, currentRange = 30;
+let charts = {};
+
+// ── Init ──────────────────────────────────────────────
+window.addEventListener("DOMContentLoaded", () => {
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false
+    }
+  });
+  checkSession();
+  updateUTMPreview();
+  ["utmSource","utmMedium","utmCampaign","utmBaseUrl","utmName"].forEach(id => {
+    document.getElementById(id)?.addEventListener("input", updateUTMPreview);
+  });
+});
+
+// ── AUTH ──────────────────────────────────────────────
+async function checkSession(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(session) showDash(session.user);
+}
+
+async function doLogin(){
+  const email = document.getElementById("loginEmail").value.trim();
+  const pass  = document.getElementById("loginPass").value;
+  const btn   = document.getElementById("loginBtn");
+  const err   = document.getElementById("loginErr");
+  err.textContent = "";
+  btn.innerHTML = '<div class="spinner"></div>';
+  btn.disabled = true;
+
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  if(error){
+    err.textContent = "Email ou mot de passe incorrect";
+    btn.innerHTML = "<span id='loginBtnText'>Connexion</span>";
+    btn.disabled = false;
+  } else {
+    showDash(data.user);
+  }
+}
+
+function showDash(user){
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("dashApp").style.display = "flex";
+  const name = user.email.split("@")[0];
+  document.getElementById("sbEmail").textContent = user.email;
+  document.getElementById("sbAvatar").textContent = name[0].toUpperCase();
+  updateTopSub();
+  loadAll();
+  startInactivityTimer();
+}
+
+async function doLogout(){
+  await sb.auth.signOut();
+  location.reload();
+}
+
+// ── INACTIVITY TIMER (30s sans activité → modal 5s → déco) ──
+let inactTimer = null, countdownTimer = null;
+const INACT_DELAY = 30 * 1000; // 30 secondes
+const INACT_COUNTDOWN = 5;     // 5 secondes pour répondre
+
+function resetInactivityTimer(){
+  clearTimeout(inactTimer);
+  // Si le modal est affiché, on le cache
+  const overlay = document.getElementById("inactOverlay");
+  if(overlay && overlay.classList.contains("show")){
+    overlay.classList.remove("show");
+    clearInterval(countdownTimer);
+  }
+  inactTimer = setTimeout(showInactivityModal, INACT_DELAY);
+}
+
+function showInactivityModal(){
+  const overlay = document.getElementById("inactOverlay");
+  const counter = document.getElementById("inactCount");
+  if(!overlay) return;
+  overlay.classList.add("show");
+  let remaining = INACT_COUNTDOWN;
+  counter.textContent = remaining;
+  countdownTimer = setInterval(() => {
+    remaining--;
+    counter.textContent = remaining;
+    if(remaining <= 0){
+      clearInterval(countdownTimer);
+      doLogout();
+    }
+  }, 1000);
+}
+
+function startInactivityTimer(){
+  // Écouter toute activité
+  ["mousemove","mousedown","keydown","touchstart","scroll","click"].forEach(evt => {
+    document.addEventListener(evt, resetInactivityTimer, { passive: true });
+  });
+  // Déconnexion si l'onglet est fermé ou si on navigue ailleurs
+  window.addEventListener("pagehide", () => { doLogout(); });
+  window.addEventListener("beforeunload", () => { sb.auth.signOut(); });
+  document.addEventListener("visibilitychange", () => {
+    if(document.hidden){
+      clearTimeout(inactTimer);
+      inactTimer = setTimeout(doLogout, 3000);
+    } else {
+      // Vérifier que la session est toujours valide au retour
+      sb.auth.getSession().then(({ data:{ session } }) => {
+        if(!session){ location.reload(); }
+        else { resetInactivityTimer(); }
+      });
+    }
+  });
+  // Bouton "Je suis toujours là"
+  document.getElementById("inactStay")?.addEventListener("click", resetInactivityTimer);
+  // Démarrer
+  resetInactivityTimer();
+}
+
+// ── NAVIGATION ───────────────────────────────────────
+const PAGE_TITLES = {
+  overview:"Vue d'ensemble", visitors:"Visiteurs", conversion:"Conversions",
+  scroll:"Scroll & Temps", utm:"Liens trackés", sources:"Sources"
+};
+
+function showPage(id, el){
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".sb-item").forEach(i => i.classList.remove("active"));
+  document.getElementById("page-"+id)?.classList.add("active");
+  el?.classList.add("active");
+  document.getElementById("topTitle").textContent = PAGE_TITLES[id] || id;
+}
+
+function setRange(days, el){
+  currentRange = days;
+  document.querySelectorAll(".date-btn").forEach(b => b.classList.remove("active"));
+  el.classList.add("active");
+  updateTopSub();
+  loadAll();
+}
+
+function updateTopSub(){
+  const end = new Date(); const start = new Date();
+  start.setDate(start.getDate() - currentRange);
+  document.getElementById("topSub").textContent =
+    `${fmt(start)} → ${fmt(end)}`;
+}
+
+function fmt(d){ return d.toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"}); }
+function fmtShort(d){ return new Date(d).toLocaleDateString("fr-FR",{day:"2-digit",month:"short"}); }
+function fmtFull(d){ return new Date(d).toLocaleString("fr-FR",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}); }
+
+// ── LOAD ALL DATA ─────────────────────────────────────
+async function loadAll(){
+  const since = new Date();
+  since.setDate(since.getDate() - currentRange);
+  const iso = since.toISOString();
+
+  const [{ data: visits }, { data: utmLinks }] = await Promise.all([
+    sb.from("page_visits").select("*").gte("created_at", iso).order("created_at", { ascending: false }),
+    sb.from("utm_links").select("*").order("created_at", { ascending: false })
+  ]);
+
+  const v = visits || [];
+  const u = utmLinks || [];
+
+  renderOverview(v);
+  renderVisitors(v);
+  renderConversion(v);
+  renderScroll(v);
+  renderUTM(v, u);
+  renderSources(v);
+}
+
+// ── OVERVIEW ──────────────────────────────────────────
+function renderOverview(v){
+  const total   = v.length;
+  const forms   = v.filter(x => x.form_submitted).length;
+  const conv    = total > 0 ? ((forms/total)*100).toFixed(1) : 0;
+  const avgTime = total > 0 ? Math.round(v.reduce((a,x)=>a+(x.time_on_page||0),0)/total) : 0;
+
+  document.getElementById("kpiVisitors").textContent = total.toLocaleString("fr-FR");
+  document.getElementById("kpiForms").textContent    = forms;
+  document.getElementById("kpiConv").textContent     = conv + "%";
+  document.getElementById("kpiTime").textContent     = avgTime < 60 ? avgTime+"s" : Math.floor(avgTime/60)+"m"+(avgTime%60)+"s";
+
+  // Traffic chart (daily)
+  const days = {}; const labels = [];
+  for(let i = currentRange-1; i >= 0; i--){
+    const d = new Date(); d.setDate(d.getDate()-i);
+    const k = d.toISOString().split("T")[0];
+    days[k] = 0;
+    labels.push(fmtShort(d));
+  }
+  v.forEach(x => { const k = x.created_at?.split("T")[0]; if(k in days) days[k]++; });
+  buildChart("trafficChart", "line", labels, Object.values(days), "Visites", "#1f3a8a");
+
+  // Device donut
+  const devCount = {};
+  v.forEach(x => { const d = x.device_type||"inconnu"; devCount[d] = (devCount[d]||0)+1; });
+  const devLabels = Object.keys(devCount);
+  const devData   = Object.values(devCount);
+  buildDoughnut("deviceChart", devLabels, devData, ["#1f3a8a","#22c55e","#f0cc4e","#fb923c"]);
+
+  // New vs Returning
+  const newV  = v.filter(x => x.is_new_visitor).length;
+  const retV  = v.filter(x => !x.is_new_visitor).length;
+  buildDoughnut("newReturnChart", ["Nouveaux","Retours"], [newV, retV], ["#2a4db5","#16a34a"]);
+
+  // Browsers
+  const brCount = {};
+  v.forEach(x => { const b = x.browser||"Autre"; brCount[b] = (brCount[b]||0)+1; });
+  const sorted = Object.entries(brCount).sort((a,b)=>b[1]-a[1]);
+  const bList = document.getElementById("browserList");
+  bList.innerHTML = sorted.map(([b,c])=>{
+    const pct = total > 0 ? Math.round(c/total*100) : 0;
+    return `<div style="padding:.4rem .5rem">
+      <div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:.3rem">
+        <span style="color:var(--txt)">${b}</span>
+        <span style="color:var(--txt2);font-family:var(--font-mono)">${pct}% <span style="color:var(--txt3)">(${c})</span></span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join("");
+}
+
+// ── VISITORS ──────────────────────────────────────────
+function renderVisitors(v){
+  // Heatmap
+  const hours = Array(24).fill(0);
+  v.forEach(x => { if(x.hour_of_visit != null) hours[x.hour_of_visit]++; });
+  const max = Math.max(...hours, 1);
+  const grid = document.getElementById("heatmapGrid");
+  const lbl  = document.getElementById("heatmapLabels");
+  grid.innerHTML = hours.map((c,h)=>{
+    const int = c/max;
+    const bg = int === 0 ? "rgba(255,255,255,.04)"
+      : `rgba(31,58,138,${0.15 + int*0.8})`;
+    return `<div class="hm-cell" style="background:${bg}" data-tip="${h}h : ${c} visite${c>1?'s':''}"></div>`;
+  }).join("");
+  lbl.innerHTML = hours.map((_,h)=>`<div class="hm-label">${h}h</div>`).join("");
+
+  // Table
+  document.getElementById("visitorCount").textContent = `${v.length} visiteurs`;
+  const tbody = document.getElementById("visitorTable");
+  if(v.length === 0){ tbody.innerHTML=`<tr><td colspan="7" class="empty-state">Aucun visiteur sur cette période</td></tr>`; return; }
+  tbody.innerHTML = v.slice(0,50).map(x => {
+    const src = sourceTag(x.utm_source || x.referrer);
+    return `<tr>
+      <td class="mono">${fmtFull(x.created_at)}</td>
+      <td>${deviceIcon(x.device_type)} ${x.device_type||"—"}</td>
+      <td>${x.browser||"—"}</td>
+      <td>${src}</td>
+      <td>${x.is_new_visitor ? '<span class="badge badge-green">Nouveau</span>' : '<span class="badge badge-gray">Retour</span>'}</td>
+      <td>${x.form_submitted ? '<span class="badge badge-blue">✓ Oui</span>' : '<span style="color:var(--txt3);font-size:.72rem">Non</span>'}</td>
+      <td><span class="mono" style="color:${x.scroll_depth>75?'#4ade80':x.scroll_depth>40?'#f0cc4e':'var(--txt3)'}">${x.scroll_depth||0}%</span></td>
+    </tr>`;
+  }).join("");
+}
+
+// ── CONVERSION ────────────────────────────────────────
+function renderConversion(v){
+  const total = v.length;
+  const forms = v.filter(x => x.form_submitted);
+  const conv  = total > 0 ? ((forms.length/total)*100).toFixed(1) : 0;
+  document.getElementById("convForms").textContent    = forms.length;
+  document.getElementById("convVisitors").textContent = total;
+  document.getElementById("convRate").textContent     = conv + "%";
+
+  // Conversion chart
+  const days = {}; const labels = [];
+  for(let i=currentRange-1;i>=0;i--){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    const k=d.toISOString().split("T")[0];
+    days[k]=0; labels.push(fmtShort(d));
+  }
+  forms.forEach(x=>{ const k=x.created_at?.split("T")[0]; if(k in days) days[k]++; });
+  buildChart("convChart","bar",labels,Object.values(days),"Formulaires","#16a34a");
+
+  // Funnel
+  const scrolledHalf = v.filter(x=>(x.scroll_depth||0)>=50).length;
+  const scrolledFull = v.filter(x=>(x.scroll_depth||0)>=80).length;
+  const funnel = document.getElementById("funnelView");
+  const steps = [
+    {label:"Visiteurs",val:total,color:"#1f3a8a"},
+    {label:"Scroll 50%+",val:scrolledHalf,color:"#2a4db5"},
+    {label:"Scroll 80%+",val:scrolledFull,color:"#c9a327"},
+    {label:"Formulaire",val:forms.length,color:"#16a34a"},
+  ];
+  funnel.innerHTML = steps.map((s,i)=>{
+    const pct = total > 0 ? Math.round(s.val/total*100) : 0;
+    return `<div style="margin-bottom:.8rem">
+      <div style="display:flex;justify-content:space-between;font-size:.75rem;margin-bottom:.3rem">
+        <span style="color:var(--txt);font-weight:600">${s.label}</span>
+        <span style="font-family:var(--font-mono);color:var(--txt2)">${s.val} <span style="color:var(--txt3)">(${pct}%)</span></span>
+      </div>
+      <div style="height:10px;background:rgba(255,255,255,.05);border-radius:999px;overflow:hidden">
+        <div style="height:100%;border-radius:999px;background:${s.color};width:${pct}%;transition:width 1s ease"></div>
+      </div>
+    </div>`;
+  }).join("");
+
+  // Form table
+  const tbody = document.getElementById("formTable");
+  tbody.innerHTML = forms.slice(0,30).map(x=>
+    `<tr><td class="mono">${fmtFull(x.created_at)}</td><td>${sourceTag(x.utm_source||x.referrer)}</td><td>${deviceIcon(x.device_type)} ${x.device_type||"—"}</td><td>${x.is_new_visitor?'<span class="badge badge-green">Nouveau</span>':'<span class="badge badge-gray">Retour</span>'}</td></tr>`
+  ).join("") || `<tr><td colspan="4" class="empty-state">Aucun formulaire sur cette période</td></tr>`;
+}
+
+// ── SCROLL ────────────────────────────────────────────
+function renderScroll(v){
+  const milestones = [25,50,75,90,100];
+  const total = v.length || 1;
+  const bars = document.getElementById("depthBars");
+  bars.innerHTML = milestones.map(m=>{
+    const cnt = v.filter(x=>(x.scroll_depth||0)>=m).length;
+    const pct = Math.round(cnt/total*100);
+    const color = m<=25?"#1f3a8a":m<=50?"#2a4db5":m<=75?"#c9a327":m<=90?"#ea580c":"#16a34a";
+    return `<div class="depth-row">
+      <div class="depth-label">${m}%</div>
+      <div class="depth-bar-wrap"><div class="depth-bar" style="width:${pct}%;background:${color}"></div></div>
+      <div class="depth-pct" style="color:${color}">${pct}%</div>
+    </div>`;
+  }).join("");
+
+  // Time distribution
+  const buckets = {"<30s":0,"30s-2m":0,"2-5m":0,"5-15m":0,">15m":0};
+  v.forEach(x=>{
+    const t = x.time_on_page||0;
+    if(t<30) buckets["<30s"]++;
+    else if(t<120) buckets["30s-2m"]++;
+    else if(t<300) buckets["2-5m"]++;
+    else if(t<900) buckets["5-15m"]++;
+    else buckets[">15m"]++;
+  });
+  buildChart("timeChart","bar",Object.keys(buckets),Object.values(buckets),"Visiteurs","#c9a327");
+
+  // Scroll by source
+  const srcScroll = {};
+  v.forEach(x=>{
+    const s = x.utm_source || (x.referrer ? "referral" : "direct");
+    if(!srcScroll[s]) srcScroll[s]={sum:0,cnt:0};
+    srcScroll[s].sum += x.scroll_depth||0;
+    srcScroll[s].cnt++;
+  });
+  const ssLabels = Object.keys(srcScroll);
+  const ssData   = ssLabels.map(s=>Math.round(srcScroll[s].sum/srcScroll[s].cnt));
+  buildChart("scrollSourceChart","bar",ssLabels,ssData,"Scroll moyen %","#2a4db5");
+}
+
+// ── UTM ───────────────────────────────────────────────
+function renderUTM(v, links){
+  // Build visit counts per utm_campaign
+  const campVisits = {}; const campConv = {};
+  v.forEach(x=>{
+    if(x.utm_campaign){
+      campVisits[x.utm_campaign] = (campVisits[x.utm_campaign]||0)+1;
+      if(x.form_submitted) campConv[x.utm_campaign]=(campConv[x.utm_campaign]||0)+1;
+    }
+  });
+
+  // UTM performance chart
+  if(Object.keys(campVisits).length > 0){
+    const cLabels = Object.keys(campVisits);
+    buildChart("utmChart","bar",cLabels,cLabels.map(k=>campVisits[k]),"Visites","#1f3a8a");
+  }
+
+  // Links table
+  document.getElementById("utmLinkCount").textContent = `${links.length} liens`;
+  const tbody = document.getElementById("utmTable");
+  if(links.length===0){
+    tbody.innerHTML=`<tr><td colspan="7"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>Aucun lien généré pour l'instant</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = links.map(l=>{
+    const visits = campVisits[l.utm_campaign] || 0;
+    const convs  = campConv[l.utm_campaign] || 0;
+    return `<tr>
+      <td style="font-weight:600;color:var(--txt)">${l.name||"—"}</td>
+      <td>${sourceTag(l.utm_source)}</td>
+      <td><span class="mono" style="color:var(--txt2)">${l.utm_campaign||"—"}</span></td>
+      <td><span style="font-family:var(--font-mono);font-weight:700;color:${visits>0?'#6b9ef8':'var(--txt3)'}">${visits}</span></td>
+      <td><span style="font-family:var(--font-mono);color:${convs>0?'#4ade80':'var(--txt3)'}">${convs}</span></td>
+      <td class="mono">${fmtShort(l.created_at)}</td>
+      <td><button class="btn-sec" style="padding:.25rem .6rem;font-size:.65rem" onclick="copyLink('${escapeAttr(l.full_url)}')">Copier</button></td>
+    </tr>`;
+  }).join("");
+}
+
+// ── SOURCES ───────────────────────────────────────────
+function renderSources(v){
+  const srcMap = {};
+  v.forEach(x=>{
+    let s = "Direct";
+    if(x.utm_source) s = x.utm_source;
+    else if(x.referrer && x.referrer.includes("google")) s = "google";
+    else if(x.referrer && x.referrer.includes("facebook")) s = "facebook";
+    else if(x.referrer && x.referrer !== "") s = "referral";
+    if(!srcMap[s]) srcMap[s]={visits:0,conv:0,scrollSum:0};
+    srcMap[s].visits++;
+    if(x.form_submitted) srcMap[s].conv++;
+    srcMap[s].scrollSum += (x.scroll_depth||0);
+  });
+
+  const entries = Object.entries(srcMap).sort((a,b)=>b[1].visits-a[1].visits);
+  const total = v.length || 1;
+  const colors = ["#1f3a8a","#16a34a","#c9a327","#ea580c","#8b5cf6","#06b6d4","#f43f5e"];
+
+  buildDoughnut("sourcePieChart", entries.map(e=>e[0]), entries.map(e=>e[1].visits), colors);
+
+  // Source line over time
+  const top3 = entries.slice(0,3).map(e=>e[0]);
+  const dayKeys = [];
+  for(let i=currentRange-1;i>=0;i--){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    dayKeys.push(d.toISOString().split("T")[0]);
+  }
+  const datasets = top3.map((src,i)=>{
+    const vals = dayKeys.map(k=>
+      v.filter(x=>x.created_at?.startsWith(k) && (x.utm_source===src || (!x.utm_source && src==="Direct"))).length
+    );
+    return { label:src, data:vals, borderColor:colors[i], backgroundColor:"transparent", tension:.4, pointRadius:3 };
+  });
+  destroyChart("sourceLineChart");
+  charts["sourceLineChart"] = new Chart(document.getElementById("sourceLineChart"), {
+    type:"line",
+    data:{ labels:dayKeys.map(k=>fmtShort(k+"T00:00:00")), datasets },
+    options:chartOpts()
+  });
+
+  // Source table
+  const tbody = document.getElementById("sourceTable");
+  tbody.innerHTML = entries.map(([s, d])=>{
+    const pct  = Math.round(d.visits/total*100);
+    const avgS = d.visits > 0 ? Math.round(d.scrollSum/d.visits) : 0;
+    const sType = s==="Direct"?"direct":["google"].includes(s)?"organic":["facebook","instagram"].includes(s)?"social":"referral";
+    return `<tr>
+      <td style="font-weight:600;color:var(--txt)">${s}</td>
+      <td>${sourceTag(sType)}</td>
+      <td><span class="mono">${d.visits}</span></td>
+      <td>
+        <span class="mono">${pct}%</span>
+        <div class="progress-bar" style="margin-top:.3rem;width:80px"><div class="progress-fill" style="width:${pct}%"></div></div>
+      </td>
+      <td><span class="mono" style="color:${d.conv>0?'#4ade80':'var(--txt3)'}">${d.conv}</span></td>
+      <td><span class="mono" style="color:${avgS>60?'#4ade80':avgS>30?'#f0cc4e':'var(--txt3)'}">${avgS}%</span></td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="6" class="empty-state">Aucune donnée</td></tr>`;
+}
+
+// ── UTM BUILDER ───────────────────────────────────────
+function updateUTMPreview(){
+  const base     = document.getElementById("utmBaseUrl")?.value || "https://spv-peinture.fr";
+  const source   = document.getElementById("utmSource")?.value || "";
+  const medium   = document.getElementById("utmMedium")?.value || "";
+  const campaign = document.getElementById("utmCampaign")?.value || "";
+  let url = base + "?utm_source=" + source + "&utm_medium=" + medium;
+  if(campaign) url += "&utm_campaign=" + encodeURIComponent(campaign);
+  document.getElementById("utmPreview").textContent = url;
+  return url;
+}
+
+async function saveUtmLink(){
+  const name     = document.getElementById("utmName").value.trim();
+  const source   = document.getElementById("utmSource").value;
+  const medium   = document.getElementById("utmMedium").value;
+  const campaign = document.getElementById("utmCampaign").value.trim();
+  const url      = updateUTMPreview();
+
+  if(!name || !campaign){ alert("Remplis le nom et la campagne."); return; }
+
+  const { error } = await sb.from("utm_links").insert({
+    name, utm_source:source, utm_medium:medium, utm_campaign:campaign, full_url:url
+  });
+  if(!error){
+    showToast("Lien sauvegardé !");
+    document.getElementById("utmName").value = "";
+    document.getElementById("utmCampaign").value = "";
+    loadAll();
+  } else {
+    alert("Erreur: " + error.message);
+  }
+}
+
+function copyUtmLink(){ copyToClipboard(document.getElementById("utmPreview").textContent); }
+function copyLink(url){ copyToClipboard(url); }
+
+function copyToClipboard(text){
+  navigator.clipboard.writeText(text).then(()=>showToast("✓ Lien copié !"));
+}
+
+function showToast(msg){
+  const t = document.getElementById("copyToast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"),2200);
+}
+
+// ── CSV EXPORT ────────────────────────────────────────
+async function exportCSV(){
+  const since = new Date(); since.setDate(since.getDate()-currentRange);
+  const { data:v } = await sb.from("page_visits").select("*").gte("created_at",since.toISOString());
+  if(!v||!v.length){ alert("Aucune donnée à exporter."); return; }
+
+  const cols = ["created_at","device_type","browser","os","utm_source","utm_medium","utm_campaign","referrer","scroll_depth","time_on_page","is_new_visitor","form_submitted"];
+  const rows = [cols.join(","), ...v.map(r=>cols.map(c=>JSON.stringify(r[c]??"")||'""').join(","))];
+  const blob = new Blob([rows.join("\n")], {type:"text/csv;charset=utf-8;"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `spv-analytics-${new Date().toISOString().split("T")[0]}.csv`;
+  a.click();
+  showToast("Export CSV téléchargé !");
+}
+
+// ── CHARTS HELPERS ────────────────────────────────────
+function destroyChart(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
+
+function chartOpts(){
+  return {
+    responsive:true, maintainAspectRatio:true,
+    plugins:{ legend:{ display:false }, tooltip:{ backgroundColor:"rgba(0,0,0,.85)", titleFont:{family:"JetBrains Mono",size:11}, bodyFont:{family:"JetBrains Mono",size:11}, padding:10, cornerRadius:6 } },
+    scales:{
+      x:{ grid:{ color:"rgba(255,255,255,.04)" }, ticks:{ color:"rgba(241,245,249,.35)", font:{family:"JetBrains Mono",size:10}, maxTicksLimit:10 } },
+      y:{ grid:{ color:"rgba(255,255,255,.04)" }, ticks:{ color:"rgba(241,245,249,.35)", font:{family:"JetBrains Mono",size:10} }, beginAtZero:true }
+    }
+  };
+}
+
+function buildChart(id, type, labels, data, label, color){
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if(!ctx) return;
+  const isBar = type === "bar";
+  charts[id] = new Chart(ctx, {
+    type,
+    data:{
+      labels,
+      datasets:[{
+        label, data,
+        borderColor:color,
+        backgroundColor: isBar ? color+"99" : color+"22",
+        borderWidth: isBar ? 0 : 2,
+        tension:.4, fill:!isBar,
+        borderRadius: isBar ? 4 : 0,
+        pointBackgroundColor: color,
+        pointRadius: isBar ? 0 : 3,
+        pointHoverRadius: isBar ? 0 : 5,
+      }]
+    },
+    options: chartOpts()
+  });
+}
+
+function buildDoughnut(id, labels, data, colors){
+  destroyChart(id);
+  const ctx = document.getElementById(id);
+  if(!ctx) return;
+  charts[id] = new Chart(ctx, {
+    type:"doughnut",
+    data:{ labels, datasets:[{ data, backgroundColor:colors.map(c=>c+"cc"), borderColor:colors, borderWidth:1.5, hoverOffset:6 }] },
+    options:{
+      responsive:true, maintainAspectRatio:true, cutout:"68%",
+      plugins:{
+        legend:{ position:"bottom", labels:{ color:"rgba(241,245,249,.5)", font:{family:"Inter",size:11}, padding:12, boxWidth:10 } },
+        tooltip:{ backgroundColor:"rgba(0,0,0,.85)", titleFont:{family:"JetBrains Mono",size:11}, bodyFont:{family:"JetBrains Mono",size:11}, padding:10, cornerRadius:6 }
+      }
+    }
+  });
+}
+
+// ── HELPERS ───────────────────────────────────────────
+function sourceTag(src){
+  if(!src || src==="direct") return '<span class="tag-source tag-direct">Direct</span>';
+  if(["google","bing","duckduckgo"].some(s=>src.includes(s))) return `<span class="tag-source tag-organic">Organique</span>`;
+  if(["facebook","instagram","tiktok","twitter","linkedin"].some(s=>src.includes(s))) return `<span class="tag-source tag-social">${src}</span>`;
+  if(src==="email"||src==="newsletter") return `<span class="tag-source tag-email">Email</span>`;
+  return `<span class="tag-source tag-other">${src}</span>`;
+}
+
+function deviceIcon(d){
+  if(!d) return "";
+  if(d.includes("mobile")||d.includes("phone")) return "📱";
+  if(d.includes("tablet")) return "📟";
+  return "🖥️";
+}
+
+function escapeAttr(s){ return (s||"").replace(/'/g,"&#39;").replace(/"/g,"&quot;"); }
+
+// ── Login on Enter ────────────────────────────────────
+document.addEventListener("keydown", e => {
+  if(e.key === "Enter" && document.getElementById("loginScreen").style.display !== "none"){
+    doLogin();
+  }
+});
+</script>
+<!-- INACTIVITY MODAL -->
+<div class="inact-overlay" id="inactOverlay">
+  <div class="inact-box">
+    <div class="inact-icon">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    </div>
+    <div class="inact-title">Session inactive</div>
+    <div class="inact-sub">Vous allez être déconnecté dans</div>
+    <div class="inact-counter" id="inactCount">5</div>
+    <button class="inact-btn" id="inactStay">Je suis toujours là</button>
+  </div>
+</div>
+
+</body>
+</html>
