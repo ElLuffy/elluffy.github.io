@@ -1388,37 +1388,51 @@
 
   // ── City tag click → highlight on map ──────────────────────
   let tagTimer = null;
+  let pinnedObj = null; // ville verrouillée par clic tag ou tap point
+
   document.querySelectorAll(".city-tag[data-city]").forEach(tag => {
     tag.addEventListener("click", () => {
       const name = tag.dataset.city;
       const obj  = cityMeshes.find(o => o.city.name === name);
       if(!obj) return;
 
-      // Sur mobile : scroll vers la carte d'abord
-      const isMobile = window.innerWidth <= 768;
-      if(isMobile){
-        const mapCard = document.getElementById("zoneMapCard");
-        if(mapCard){
-          const top = mapCard.getBoundingClientRect().top + window.scrollY - 80;
-          smoothScrollTo(top, 600);
-        }
+      // Scroll vers la carte sur TOUS les écrans
+      const mapCard = document.getElementById("zoneMapCard");
+      if(mapCard){
+        const top = mapCard.getBoundingClientRect().top + window.scrollY - 80;
+        smoothScrollTo(top, 600);
       }
-
-      // Highlight city (avec délai sur mobile pour laisser le scroll se faire)
-      setTimeout(() => highlightCity(obj, true), isMobile ? 500 : 0);
 
       // Active state sur le tag
       document.querySelectorAll(".city-tag").forEach(t => t.classList.remove("active"));
       tag.classList.add("active");
+
+      // Pin la ville après le scroll (délai mobile plus long)
+      const isMobile = window.innerWidth <= 768;
+      setTimeout(() => pinCity(obj), isMobile ? 550 : 350);
     });
   });
 
-  // highlightCity : affiche tooltip et l'enlève après 2.5s
+  // pinCity : verrouille le tooltip sur une ville
+  function pinCity(obj){
+    pinnedObj = obj;
+    setHovered(obj);
+    if(tagTimer) clearTimeout(tagTimer);
+    tagTimer = setTimeout(() => {
+      pinnedObj = null;
+      setHovered(null);
+      document.querySelectorAll(".city-tag").forEach(t => t.classList.remove("active"));
+    }, 3000);
+  }
+
+  // highlightCity : pour les clics directs sur les points de la carte
   function highlightCity(obj, autoHide){
+    pinnedObj = obj;
     setHovered(obj);
     if(tagTimer) clearTimeout(tagTimer);
     if(autoHide){
       tagTimer = setTimeout(() => {
+        pinnedObj = null;
         mouse.set(999, 999);
         setHovered(null);
         document.querySelectorAll(".city-tag").forEach(t => t.classList.remove("active"));
@@ -1439,21 +1453,27 @@
     hovered.dot.parent.localToWorld(v);
     v.project(camera);
     const rect = renderer.domElement.getBoundingClientRect();
-    tip.style.left = ((v.x *  0.5 + 0.5) * rect.width)  + "px";
-    tip.style.top  = ((v.y * -0.5 + 0.5) * rect.height) + "px";
-    tip.innerHTML  = `${hovered.city.name}<small>Vendée (85)</small>`;
+    const rawX = (v.x *  0.5 + 0.5) * rect.width;
+    const rawY = (v.y * -0.5 + 0.5) * rect.height;
+    // Clamp pour rester dans le canvas
+    const tipW = 160, tipH = 52;
+    const clampedX = Math.max(tipW/2, Math.min(rect.width  - tipW/2, rawX));
+    const clampedY = Math.max(tipH + 8, Math.min(rect.height - 8, rawY));
+    tip.style.left    = clampedX + "px";
+    tip.style.top     = clampedY + "px";
+    tip.innerHTML     = `${hovered.city.name}<small>Vendée (85)</small>`;
   }
 
   /* ── Animate loop ── */
   function animate(t){
     requestAnimationFrame(animate);
 
-    // Hover detection
+    // Hover detection — si une ville est pinned, on ne la remplace pas par la souris
     raycaster.setFromCamera(mouse, camera);
     const dots = cityMeshes.map(o => o.dot);
     const hits = raycaster.intersectObjects(dots, false);
     const hitObj = hits.length ? cityMeshes.find(o => o.dot === hits[0].object) : null;
-    setHovered(hitObj || null);
+    if(!pinnedObj) setHovered(hitObj || null);
 
     const T = t * 0.001;
 
