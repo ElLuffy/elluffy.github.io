@@ -1597,7 +1597,7 @@
         "Content-Type": "application/json",
         "apikey": SUPA_KEY,
         "Authorization": "Bearer " + SUPA_KEY,
-        "Prefer": "return=minimal"
+        "Prefer": "return=minimal,resolution=ignore-duplicates"
       },
       body: JSON.stringify(row)
     }).catch(()=>{});
