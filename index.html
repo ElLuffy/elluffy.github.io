@@ -1192,6 +1192,10 @@
 
   /* ── interaction ── */
   const raycaster = new THREE.Raycaster();
+  raycaster.params.Points = { threshold: 8 };
+  // Agrandir la zone de détection pour faciliter le tap mobile
+  const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  if(isTouchDevice) raycaster.params.Mesh = { threshold: 6 };
   const mouse     = new THREE.Vector2(999, 999);
   let cityMeshes  = [];
   let hovered     = null;
@@ -1331,10 +1335,18 @@
     deptGroup.add(ring);
     deptGroup.add(ring2);
 
+    // Hitbox invisible élargie pour faciliter le tap mobile
+    const hitGeo = new THREE.SphereGeometry(isTouchDevice ? 9 : 5, 8, 8);
+    const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+    const hitbox = new THREE.Mesh(hitGeo, hitMat);
+    hitbox.position.set(x, y, z);
+    hitbox.userData.city = city;
+    deptGroup.add(hitbox);
+
     // Each city gets its own phase offset for the pulse
     const phase = Math.random() * Math.PI * 2;
 
-    return { city, dot, ring, ring2, phase };
+    return { city, dot, ring, ring2, hitbox, phase };
   }
 
   /* ── Mouse ── */
@@ -1362,11 +1374,11 @@
     mouse.x = ((t.clientX - rect.left) / rect.width)  *  2 - 1;
     mouse.y = ((t.clientY - rect.top)  / rect.height) * -2 + 1;
     raycaster.setFromCamera(mouse, camera);
-    const dots = cityMeshes.map(o => o.dot);
-    const hits = raycaster.intersectObjects(dots, false);
+    const targets = cityMeshes.flatMap(o => [o.dot, o.hitbox].filter(Boolean));
+    const hits = raycaster.intersectObjects(targets, false);
     if(hits.length){
-      const obj = cityMeshes.find(o => o.dot === hits[0].object);
-      highlightCity(obj, true);
+      const obj = cityMeshes.find(o => o.dot === hits[0].object || o.hitbox === hits[0].object);
+      if(obj) pinCity(obj);
     } else {
       mouse.set(999, 999);
       setHovered(null);
@@ -1377,12 +1389,12 @@
     const rect = renderer.domElement.getBoundingClientRect();
     mouse.x = ((ev.clientX - rect.left) / rect.width)  *  2 - 1;
     mouse.y = ((ev.clientY - rect.top)  / rect.height) * -2 + 1;
-    const dots = cityMeshes.map(o => o.dot);
+    const targets = cityMeshes.flatMap(o => [o.dot, o.hitbox].filter(Boolean));
     raycaster.setFromCamera(mouse, camera);
-    const hits = raycaster.intersectObjects(dots, false);
+    const hits = raycaster.intersectObjects(targets, false);
     if(hits.length){
-      const obj = cityMeshes.find(o => o.dot === hits[0].object);
-      highlightCity(obj, false);
+      const obj = cityMeshes.find(o => o.dot === hits[0].object || o.hitbox === hits[0].object);
+      if(obj) pinCity(obj);
     }
   });
 
@@ -1470,9 +1482,9 @@
 
     // Hover detection — si une ville est pinned, on ne la remplace pas par la souris
     raycaster.setFromCamera(mouse, camera);
-    const dots = cityMeshes.map(o => o.dot);
-    const hits = raycaster.intersectObjects(dots, false);
-    const hitObj = hits.length ? cityMeshes.find(o => o.dot === hits[0].object) : null;
+    const targets = cityMeshes.flatMap(o => [o.dot, o.hitbox].filter(Boolean));
+    const hits = raycaster.intersectObjects(targets, false);
+    const hitObj = hits.length ? cityMeshes.find(o => o.dot === hits[0].object || o.hitbox === hits[0].object) : null;
     if(!pinnedObj) setHovered(hitObj || null);
 
     const T = t * 0.001;
