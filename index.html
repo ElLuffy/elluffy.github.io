@@ -1727,7 +1727,7 @@
       scroll_depth: 0,
       time_on_page: 0,
       created_at:   now,
-      metadata:     JSON.stringify({ title: document.title })
+      metadata:     { title: document.title }
     });
 
     // 4. Scroll milestones
@@ -1759,7 +1759,7 @@
             scroll_depth: m,
             time_on_page: Math.round((Date.now()-startTime)/1000),
             created_at:   new Date().toISOString(),
-            metadata:     JSON.stringify({ milestone: m })
+            metadata:     { milestone: m }
           });
         }
       });
@@ -1793,7 +1793,7 @@
         scroll_depth: scrollMax,
         time_on_page: Math.round((Date.now()-startTime)/1000),
         created_at:   t,
-        metadata:     JSON.stringify({ form: "contact" })
+        metadata:     { form: "contact" }
       });
       // Marquer la session comme convertie
       sbPatch("sessions", `session_id=eq.${sessionId}`, { converted: true, converted_at: t });
@@ -1813,7 +1813,7 @@
         event_name: "cta_click",
         page_url:   location.href,
         created_at: new Date().toISOString(),
-        metadata:   JSON.stringify({ type: ctaType, text: el.textContent.trim().slice(0,50) })
+        metadata:   { type: ctaType, text: el.textContent.trim().slice(0,50) }
       });
     }, { passive:true });
 
