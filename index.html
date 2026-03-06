@@ -1360,15 +1360,20 @@
     setHovered(null);
   });
   // Touch support — hover on touch
-  // Touch support — hover on touch
+  // Touch smart : tap sur point = tooltip, sinon scroll normal
+  let touchStartX = 0, touchStartY = 0, touchMoved = false;
+  renderer.domElement.addEventListener("touchstart", ev => {
+    touchStartX = ev.touches[0].clientX;
+    touchStartY = ev.touches[0].clientY;
+    touchMoved = false;
+  }, { passive: true });
   renderer.domElement.addEventListener("touchmove", ev => {
-    ev.preventDefault();
-    const t = ev.touches[0];
-    const rect = renderer.domElement.getBoundingClientRect();
-    mouse.x = ((t.clientX - rect.left) / rect.width)  *  2 - 1;
-    mouse.y = ((t.clientY - rect.top)  / rect.height) * -2 + 1;
-  }, { passive: false });
+    const dx = Math.abs(ev.touches[0].clientX - touchStartX);
+    const dy = Math.abs(ev.touches[0].clientY - touchStartY);
+    if(dx > 6 || dy > 6) touchMoved = true; // c'est un scroll, on laisse passer
+  }, { passive: true });
   renderer.domElement.addEventListener("touchend", ev => {
+    if(touchMoved) return; // scroll → on ne fait rien
     const t = ev.changedTouches[0];
     const rect = renderer.domElement.getBoundingClientRect();
     mouse.x = ((t.clientX - rect.left) / rect.width)  *  2 - 1;
@@ -1383,7 +1388,7 @@
       mouse.set(999, 999);
       setHovered(null);
     }
-  });
+  }, { passive: true });
   // Click on desktop city dots
   renderer.domElement.addEventListener("click", ev => {
     const rect = renderer.domElement.getBoundingClientRect();
