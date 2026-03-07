@@ -462,8 +462,21 @@
           </div>
         </div>
         <div class="table-card">
-          <div class="table-header"><h3>Derniers visiteurs</h3><span style="font-size:.7rem;color:var(--txt3)" id="visitorCount"></span></div>
-          <table><thead><tr><th>Date</th><th>Appareil</th><th>Navigateur</th><th>Source</th><th>Nouveau</th><th>Formulaire</th><th>Scroll</th></tr></thead>
+          <div class="table-header" style="flex-wrap:wrap;gap:.5rem">
+            <h3>Derniers visiteurs</h3>
+            <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+              <div class="date-range" style="margin:0">
+                <button class="date-btn" id="vt-1"    onclick="setVisitorRange(1,this)">1j</button>
+                <button class="date-btn active" id="vt-7" onclick="setVisitorRange(7,this)">7j</button>
+                <button class="date-btn" id="vt-30"  onclick="setVisitorRange(30,this)">30j</button>
+                <button class="date-btn" id="vt-90"  onclick="setVisitorRange(90,this)">90j</button>
+                <button class="date-btn" id="vt-365" onclick="setVisitorRange(365,this)">1an</button>
+                <button class="date-btn" id="vt-0"   onclick="setVisitorRange(0,this)">Tout</button>
+              </div>
+              <span style="font-size:.7rem;color:var(--txt3)" id="visitorCount"></span>
+            </div>
+          </div>
+          <table><thead><tr><th>Date</th><th>Appareil</th><th>Navigateur</th><th>Source</th><th>Type</th><th>Formulaire</th><th>Scroll</th></tr></thead>
           <tbody id="visitorTable"></tbody></table>
         </div>
       </div>
@@ -980,7 +993,7 @@ function renderVisitors(S, E, V){
     if(firstSeen >= since) newCount++;  // first_seen dans la période = nouveau
     else retCount++;                    // first_seen avant = retour
   });
-  buildDoughnut("newReturnChart",["Nouveaux","Retour"],[newCount, retCount],["#1f3a8a","#6b9ef8"]);
+  buildDoughnut("newReturnChart",["Nouveaux","Retour"],[newCount, S.length - newCount],["#1f3a8a","#6b9ef8"]);
 
   // ── Top browsers → div#browserList (liste HTML) ──
   const bMap = {};
@@ -1004,27 +1017,58 @@ function renderVisitors(S, E, V){
   if(window._heatmapHours === undefined) window._heatmapHours = 0;
   renderHeatmap(window._heatmapHours);
 
-  // ── Tableau sessions ──
+  // Stocker pour re-render avec timeframe
+  window._vtS = S; window._vtE = E; window._vtVisitorMap = visitorMap; window._vtSince = since;
+  if(window._vtRange === undefined) window._vtRange = 7;
+  renderVisitorTable();
+}
+
+function setVisitorRange(days, el){
+  window._vtRange = days;
+  document.querySelectorAll("[id^='vt-']").forEach(b=>b.classList.remove("active"));
+  if(el) el.classList.add("active");
+  renderVisitorTable();
+}
+
+function renderVisitorTable(){
+  const S = window._vtS || [];
+  const E = window._vtE || [];
+  const visitorMap = window._vtVisitorMap || {};
+  const since = window._vtSince || new Date(0);
+  const vtRange = window._vtRange !== undefined ? window._vtRange : 7;
+
+  // Filtrer par timeframe propre au tableau
+  let filtered = S;
+  if(vtRange > 0){
+    const cutoff = new Date(Date.now() - vtRange * 86400000);
+    filtered = S.filter(s => s.started_at && new Date(s.started_at) >= cutoff);
+  }
+
   const tbody = document.getElementById("visitorTable");
+  const countEl = document.getElementById("visitorCount");
+  if(countEl) countEl.textContent = filtered.length + " session" + (filtered.length>1?"s":"");
   if(!tbody) return;
-  tbody.innerHTML = S.slice(0,50).map(s=>{
-    const convd   = E.some(e=>e.session_id===s.session_id && e.event_name==="form_submit");
-    const isNew   = V.find(v=>v.visitor_id===s.visitor_id && v.is_new);
-    const scrollE  = E.filter(e=>e.session_id===s.session_id && e.event_name==="scroll");
-    const pvE      = E.filter(e=>e.session_id===s.session_id && e.event_name==="page_view");
-    let maxScroll  = 0;
+
+  tbody.innerHTML = filtered.slice(0,100).map(s=>{
+    const convd = E.some(e=>e.session_id===s.session_id && e.event_name==="form_submit");
+    // isNew : first_seen du visiteur >= since (début de la période globale du dashboard)
+    const vData = visitorMap[s.visitor_id];
+    const isNew = vData ? new Date(vData.first_seen) >= since : true;
+    const scrollE = E.filter(e=>e.session_id===s.session_id && e.event_name==="scroll");
+    const pvE     = E.filter(e=>e.session_id===s.session_id && e.event_name==="page_view");
+    let maxScroll = 0;
     scrollE.forEach(e=>{ const m=parseMeta(e).milestone||e.scroll_depth||0; if(m>maxScroll) maxScroll=m; });
     pvE.forEach(e=>{ if((e.scroll_depth||0)>maxScroll) maxScroll=e.scroll_depth; });
     return `<tr>
-      <td class="mono" style="font-size:.65rem">${fmtShort(s.started_at)}</td>
+      <td class="mono" style="font-size:.65rem">${fmtFull(s.started_at)}</td>
       <td>${deviceIcon(s.device_type)} ${s.device_type||"—"}</td>
       <td>${s.browser||"—"}</td>
       <td>${sourceTag(s.utm_source)}</td>
-      <td>${isNew ? '<span class="badge badge-blue">Nouveau</span>' : '<span style="color:var(--txt3)">Retour</span>'}</td>
+      <td>${isNew ? '<span class="badge badge-blue">Nouveau</span>' : '<span style="color:var(--txt3);font-size:.72rem">Retour</span>'}</td>
       <td>${convd ? '<span class="badge badge-green">✓</span>' : '<span style="color:var(--txt3)">—</span>'}</td>
       <td style="font-family:var(--font-mono);font-size:.7rem">${maxScroll>0?maxScroll+"%":"—"}</td>
     </tr>`;
-  }).join("") || `<tr><td colspan="7" class="empty-state">Aucune session</td></tr>`;
+  }).join("") || `<tr><td colspan="7" class="empty-state">Aucune session sur cette période</td></tr>`;
 }
 
 // ── CONVERSION ────────────────────────────────────────
