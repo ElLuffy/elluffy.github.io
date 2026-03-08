@@ -1,2 +1,4 @@
 User-agent: *
-Disallow: /dashboard
+Disallow: /dashboard.html
+
+Sitemap: https://spv-peinture.fr/sitemap.xml
